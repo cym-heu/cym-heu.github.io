@@ -1,0 +1,63 @@
+{
+    "fileName": "jsonfunction getTime() {\r\n    var d = new Date();\r\n    var n = d.getTime();\r\n    return n;\r\n}",
+    "nodes": {
+        "id": [
+            1,
+            2,
+            3,
+            4
+        ],
+        "label": [
+            1,
+            2,
+            3,
+            4
+        ]
+    },
+    "edges": {
+        "id": [
+            null
+        ],
+        "label": [
+            3
+        ],
+        "source": [],
+        "target": []
+    },
+    "cnt": null,
+    "to": [
+        null,
+        1
+    ],
+    "val": [
+        null,
+        3
+    ],
+    "nxt": [
+        null,
+        null
+    ],
+    "head": [
+        null,
+        null,
+        null,
+        1
+    ],
+    "_cnt": null,
+    "_to": [
+        0,
+        3
+    ],
+    "_val": [
+        0,
+        3
+    ],
+    "_nxt": [
+        0,
+        null
+    ],
+    "_head": [
+        0,
+        1
+    ]
+}

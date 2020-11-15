@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <!--引入element ui默认样式表-->
+  <link rel="stylesheet" href="./lib/elementui.css">
+  <div style="display: none;">
+    <input type="file" id="files" />
+  </div>
+</head>
+
+<body oncontextmenu="doNothing()">
+  <div id="app">
+    <el-container style="height: 800px; border: 1px solid #eee">
+      <el-aside width="200px" style="background-color: rgb(238, 241, 246)">
+        <el-menu :default-openeds="['1', '2', '3', '4']">
+          <el-submenu index="1">
+            <template slot="title"><i class="el-icon-message"></i>绘制</template>
+            <el-menu-item-group>
+              <el-menu-item index="1-1" @click="addElement">图元</el-menu-item>
+              <el-menu-item index="1-2" @click="addEdge">连线</el-menu-item>
+            </el-menu-item-group>
+          </el-submenu>
+          <el-submenu index="2">
+            <template slot="title"><i class="el-icon-menu"></i>数据</template>
+            <el-menu-item-group>
+              <el-menu-item index="2-1" @click="save">保存</el-menu-item>
+              <el-menu-item index="2-2" @click="open">打开</el-menu-item>
+            </el-menu-item-group>
+          </el-submenu>
+          <el-submenu index="3">
+            <template slot="title"><i class="el-icon-setting"></i>算法</template>
+            <el-menu-item-group>
+              <el-menu-item index="3-1" @click="Astar">A*算法</el-menu-item>
+              <el-menu-item index="3-2" @click="Spfa">Spfa</el-menu-item>
+            </el-menu-item-group>
+          </el-submenu>
+          <el-submenu index="4">
+            <template slot="title"><i class="el-icon-setting"></i>表格</template>
+            <el-menu-item-group>
+              <el-menu-item index="4-1" @click="openSpfaCharts">Spfa</el-menu-item>
+              <el-menu-item index="4-2" @click="openAstarCharts">A*</el-menu-item>
+            </el-menu-item-group>
+          </el-submenu>
+        </el-menu>
+      </el-aside>
+
+      <el-container>
+        <el-header>
+          基于A*算法的第k最短路径
+        </el-header>
+
+        <!-- 画布 -->
+        <el-main>
+          <div id="mountNode">
+
+          </div>
+        </el-main>
+      </el-container>
+    </el-container>
+
+
+    <!-- 节点信息弹框 -->
+    <el-dialog title="节点信息" :visible.sync="elementDialog" width="30%" :before-close="handleClose">
+      <el-form ref="form" :model="form" label-width="80px">
+        <el-form-item label="id">
+          <el-input v-model="node.id" :disabled="true"></el-input>
+        </el-form-item>
+        <el-form-item label="名称">
+          <el-input v-model="node.name"></el-input>
+        </el-form-item>
+      </el-form>
+      <span slot="footer" class="dialog-footer">
+        <el-button type="success" @click="changeNode">修 改</el-button>
+        <el-button @click="elementDialog = false">取 消</el-button>
+        <el-button type="danger" @click="deleteNode">删 除</el-button>
+      </span>
+    </el-dialog>
+
+    <!-- spfa算法弹窗 -->
+    <el-dialog title="spfa求到终点的最短路径" :visible.sync="SpfaDialog" width="30%" :before-close="handleClose">
+      <el-form ref="form" :model="form" label-width="80px">
+        <el-form-item label="起始">
+          <el-input v-model="begin" :disabled="true"></el-input>
+        </el-form-item>
+        <el-form-item label="终止">
+          <el-input v-model="end" :disabled="true"></el-input>
+        </el-form-item>
+      </el-form>
+      <span slot="footer" class="dialog-footer">
+        <el-button type="success" @click="Spfaok">确 定</el-button>
+        <el-button @click="SpfaDialog = false">取 消</el-button>
+      </span>
+    </el-dialog>
+
+    <!-- A*算法弹窗 -->
+    <el-dialog title="A*算法求k短路" :visible.sync="AstarDialog" width="30%" :before-close="handleClose">
+      <el-form ref="form" label-width="80px">
+        <!-- 这里的起点和终点用的是spfa中的起点和终点 -->
+        <el-form-item label="起始">
+          <el-input v-model="begin" :disabled="true"></el-input>
+        </el-form-item>
+        <el-form-item label="终止">
+          <el-input v-model="end" :disabled="true"></el-input>
+        </el-form-item>
+        <el-form-item label="k">
+          <el-input-number v-model="k" :min="1" :max="10" label="k"></el-input-number>
+        </el-form-item>
+      </el-form>
+      <span slot="footer" class="dialog-footer">
+        <el-button type="success" @click="AstarOk">确 定</el-button>
+        <el-button @click="AstarDialog = false">取 消</el-button>
+      </span>
+    </el-dialog>
+
+    <!-- 权值弹窗 -->
+    <el-dialog title="边" :visible.sync="ValueDialog" width="30%" :before-close="handleClose">
+      <el-form ref="form" :model="form" label-width="80px">
+        <el-form-item label="权值">
+          <el-input-number v-model="value"></el-input-number>
+        </el-form-item>
+      </el-form>
+      <span slot="footer" class="dialog-footer">
+        <el-button type="success" @click="ValueOk">确 定</el-button>
+        <el-button @click="ValueDialog = false">取 消</el-button>
+      </span>
+    </el-dialog>
+
+    <!-- spfa抽屉 -->
+    <el-drawer title="spfa数据展示" :visible.sync="spfaDrawer" :with-header="false">
+      <div style="margin-top: 10px; margin-bottom: 20px; text-align: center;font-size: 20px; vertical-align:middle ;">
+        spfa数据展示</div>
+      <el-form ref="form" label-width="80px">
+        <el-form-item label="节点id">
+          <el-input v-model="end" :disabled="true"></el-input>
+        </el-form-item>
+        <el-form-item label="节点名称">
+          <el-input v-model="endName" :disabled="true"></el-input>
+        </el-form-item>
+      </el-form>
+      <div id="spfaCharts" style="width: 500px;height:400px;"></div>
+    </el-drawer>
+
+    <!-- Astar抽屉 -->
+    <el-drawer title="Astar数据展示" :visible.sync="AstarDrawer" :with-header="false">
+      <div style="margin-top: 10px; margin-bottom: 20px; text-align: center;font-size: 20px; vertical-align:middle ;">
+        Astar数据展示</div>
+      <el-form ref="form" label-width="80px">
+        <el-form-item label="原节点">
+          <el-input v-model="begin" :disabled="true"></el-input>
+        </el-form-item>
+        <el-form-item label="目标节点">
+          <el-input v-model="end" :disabled="true"></el-input>
+        </el-form-item>
+      </el-form>
+      <div id="AstarCharts" style="width: 500px;height:400px;"></div>
+      <div style="margin-top: 10px; margin-bottom: 20px; text-align: center;font-size: 20px; vertical-align:middle ;">
+        路径列表</div>
+      <div id="myText" style="margin-left: 5px;"></div>
+    </el-drawer>
+  </div>
+
+</body>
+<!-- import Vue before Element -->
+<script src="./lib/vue.js"></script>
+<!-- import JavaScript -->
+<script src="./lib/element.js"></script>
+<!-- 引入g6 -->
+<script src="./lib/g6328.js"></script>
+<!-- 引入echarts -->
+<script src="./lib/echarts.js"></script>
+<!-- 引入jquery -->
+<!-- <script src="https://cdn.staticfile.org/jquery/1.10.2/jquery.min.js"></script> -->
+<!-- json文件保存 -->
+<!-- <script src="https://cdn.bootcss.com/FileSaver.js/2014-11-29/FileSaver.js"></script> -->
+<script src="./lib/jsonFile.js"></script>
+<script>
+  // 全局变量
+  var k = 0;
+  var tempNode = null;
+  var tempEdge = null;
+  var ifElement = false;
+  var ifEdge = false;
+  var ifSpfa = false;
+  var ifAstar = false;
+  var source = null; // 存放连线的起始节点
+  var target = null; // 存放连线的目标节点
+  var begin = null; // 算法开始节点
+  var end = null;   // 算法终止节点
+  var ifSelect = false; // 判断是否进行了spfa算法
+  var completeAstar = false;
+
+  // 工具栏状态清零
+  function reset() {
+    ifElement = false;
+    ifEdge = false;
+    ifSpfa = false;
+    ifAstar = false;
+  }
+
+  var app = new Vue({
+    el: '#app',
+    data() {
+      return {
+        value: null, // 权值
+        elementDialog: false,
+        SpfaDialog: false,
+        AstarDialog: false,
+        ValueDialog: false,
+        begin: null,
+        end: null,
+        form: null,
+        spfaDrawer: false,
+        AstarDrawer: false,
+        endName: null,
+        k,
+        node: {
+          id: null,
+          name: null,
+        }
+      }
+    },
+    created() {
+    },
+    methods: {
+      openSpfaCharts() {
+        this.spfaDrawer = true;
+      },
+      openAstarCharts() {
+        this.AstarDrawer = true;
+        setTimeout('showAstar()', 500)
+        setTimeout('showText()', 500)
+      },
+      addElement() {
+        reset();
+        ifElement = true;
+      },
+      addEdge() {
+        reset();
+        ifEdge = true;
+      },
+      // 更改节点
+      changeNode() {
+        const model = {
+          label: this.node.name
+        }
+        graph.updateItem(tempNode, model);
+        this.elementDialog = false;
+      },
+      // 删除节点
+      deleteNode() {
+        graph.removeItem(tempNode);
+        this.elementDialog = false;
+      },
+      // spfa弹窗
+      Spfa() {
+        reset();
+        // 清空相关数组
+        for (let i = 0; i < 10000; i++) {
+          dis[i] = 111111;
+        }
+        begin = null;
+        end = null;
+        ifSpfa = true;
+      },
+      // Spfa确认
+      Spfaok() {
+        // TODO
+        // 找最短路径
+        Spfa(end.getModel().id, begin.getModel().id);
+        console.log(dis);
+        // 将所有选中节点设为未选中
+        let nodes = graph.getNodes();
+        nodes.forEach(el => {
+          graph.setItemState(el, 'selected', false);
+        });
+        // 将label赋值
+        this.endName = end.getModel().label;
+        // 出现charts
+        this.spfaDrawer = true;
+        setTimeout('showSpfa()', 500)
+        ifSpfa = false;
+        ifSelect = true;
+        this.SpfaDialog = false;
+      },
+      // A*弹窗
+      Astar() {
+        reset();
+        if (ifSelect)
+          this.AstarDialog = true;
+        else {
+          this.$message({
+            message: '请先点击spfa选择起始节点与终止节点',
+            type: 'warning'
+          });
+        }
+      },
+      // A*确认
+      AstarOk() {
+        Astar(begin.getModel().id, end.getModel().id, this.k);
+        this.AstarDialog = false;
+        // 将节点依次高亮
+        for (let i = 0; i < Ans.length; i++) {
+          (function (i) {
+            setTimeout(function timer() {
+              const node = graph.findById(Ans[i]);
+              graph.setItemState(node, 'highLight', true);
+            }, i * 1000);
+          })(i);
+        }
+        completeAstar = true; // 完成Astar算法
+      },
+      // 权值弹窗
+      ValueOk() {
+        let $this = this;
+        const model = {
+          id: getTime(),
+          source: source,
+          target: target,
+          label: $this.value,
+          labelCfg: {
+            refX: 10,  // 文本在 x 方向偏移量
+            refY: 10,  // 文本在 y 方向偏移量
+            style: {
+              fill: '#595959'
+            }
+          },
+          shape: 'line',
+          lineType: '10',
+          style: {
+            stroke: "black",
+            lineWidth: 1,
+            endArrow: true,
+          },
+        };
+        tempEdge = graph.addItem('edge', model);
+        // graph.render();
+        // 加入自定义图
+        let tempModel = tempEdge.getModel();
+        // 存反图
+        addEdge(tempModel.target, tempModel.source, tempEdge._cfg.model.label)
+        // 存原图
+        _addEdge(tempModel.source, tempModel.target, tempEdge._cfg.model.label)
+        console.log(_val)
+        console.log(_to)
+        console.log(_head)
+        console.log(_nxt)
+        this.ValueDialog = false;
+        source = null;
+        target = null;
+
+      },
+      // 文件保存
+      save() {
+        saveDatas();
+      },
+      // 文件打开
+      open() {
+        openDatas();
+      },
+      handleClose() {
+
+      }
+
+    }
+  })
+</script>
+<!-- A*等算法 -->
+<script src="algorithm.js"></script>
+<!-- 画布算法 -->
+<script src="./graph.js"></script>
+<!-- echarts表格 -->
+<script src="./charts.js"></script>
+<!-- 文件的保存与打开 -->
+<script src="./saveAndOpen.js"></script>
+<style>
+  .el-header {
+    background-color: #B3C0D1;
+    color: #333;
+    line-height: 60px;
+    text-align: center;
+    font-size: 15px;
+  }
+
+  .el-aside {
+    color: #333;
+  }
+</style>
+
+
+</html>
